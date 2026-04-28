@@ -1,0 +1,20 @@
+.claude/
+.codex/
+.DS_Store
+.env
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local knowflow config
+knowflow/.env
+knowflow/.env.*
+!knowflow/.env.example
+knowflow/.venv/
+knowflow/.python-version

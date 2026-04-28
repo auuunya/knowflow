@@ -1,0 +1,5 @@
+content/
+data/
+wiki/
+public/
+.hugo_build.lock
