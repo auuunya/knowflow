@@ -15,22 +15,22 @@
 
 # 输入
 
-TOPIC: {topic}
-SUMMARY: {summary}
-TAGS: {tags}
-ENTITIES: {entities}
-COMPARISONS: {comparisons}
+| 变量 | 类型 | 必须 | 说明 |
+|---|---|---|---|
+| `{topic}` | string | 是 | 概念名 |
+| `{summary}` | string | 是 | 概念摘要 |
+| `{tags}` | string[] | 否 | 标签 |
+| `{entities}` | object[] | 否 | 相关实体（来自 clean-source） |
+| `{comparisons}` | object[] | 否 | 对比关系（来自 clean-source） |
+| `{topics}` | string[] | 否 | 已有概念列表 |
+| `{topic_map}` | object | 否 | topic→summary 映射 |
+| `{related_topics}` | string[] | 否 | 相关概念 |
+| `{source_notes}` | object[] | 否 | 来源笔记信息 |
+| `{content_digest}` | string | 否 | 内容摘要 |
+
+参见 [PIPELINE.md](./PIPELINE.md) 了解完整流程契约。
 
 TOPICS:
-{topics}
-
-TOPIC_MAP:
-{topic_map}
-
-RELATED_TOPICS:
-{related_topics}
-
-SOURCE_NOTES:
 {source_notes}
 
 CONTENT_DIGEST:
@@ -68,6 +68,48 @@ CONTENT_DIGEST:
 - 不要为了凑结构硬写空话
 - 可以补一个简短导语，但不要再写重复标题
 
+# 写作示例
+
+输入：
+
+```
+TOPIC: "docker-network"
+SUMMARY: "Docker 容器网络模型包括 bridge、host、overlay 等模式，决定了容器间及容器与宿主机的通信方式"
+```
+
+输出（节选）：
+
+```markdown
+## 这个主题解决什么问题
+
+容器运行后，容器之间、容器与宿主机之间、跨主机容器之间如何通信，是部署中最先遇到的基础设施问题。Docker 提供了多种网络模式来覆盖这些场景。
+
+## 核心机制 / 判断框架
+
+Docker 网络以驱动（driver）为单位实现，常见模式：
+
+| 模式 | 通信范围 | 典型场景 |
+|---|---|---|
+| bridge | 同宿主机容器间 | 单机开发、小规模部署 |
+| host | 容器直接使用宿主机网络栈 | 高性能网络、端口密集场景 |
+| overlay | 跨主机容器间 | Swarm / 集群部署 |
+
+选择依据：是否需要跨主机通信、是否需要网络隔离、性能要求。
+
+## 在当前知识库里的关键切面
+
+本知识库目前覆盖了 Docker 基础操作和部署流程，但对网络模型的系统性说明不足。已有的零散记录集中在 bridge 模式的端口映射上。
+
+## 与相邻概念的关系
+
+- [Docker Volume](./docker-volume.md)：网络解决通信问题，Volume 解决持久化问题，两者是容器基础设施的两个维度
+- [Kubernetes Networking](./kubernetes-networking.md)：K8s 的 CNI 模型建立在 Docker 网络之上，提供更多抽象
+
+## 实践入口 / 继续阅读
+
+- 从 [Docker 基础操作](../sources/docker-basics/) 开始，理解容器生命周期后再看网络
+```
+
 # 内链规则
 
 当正文里提到 `RELATED_TOPICS` 或 `TOPICS` 中存在的概念时：
@@ -87,10 +129,37 @@ CONTENT_DIGEST:
 
 # 风格要求
 
-- 知识库风格
-- 面向查看的人
-- 解释优先，少空话
+- 知识库风格，面向查看的人
+- 解释优先，少空话，不要营销文案
 - 清晰指出边界和关联
 - 尽量使用中文写作；必要英文术语保留
 - 优先使用短段落与高信息密度表达
 - 当输入包含多条来源时，先压缩共识，再点出分支
+
+# 篇幅指引
+
+- 概念 hub 正文建议 600 到 1500 字
+- 如果来源内容丰富，可以到 2000 字
+- 如果来源很少，300 到 500 字的简短 hub 也可以
+- 不要为了凑字数重复表达同一观点
+
+# 输入变量缺失处理
+
+| 缺失变量 | 处理 |
+|---|---|
+| SUMMARY 为空 | 从 CONTENT_DIGEST 和 SOURCE_NOTES 中自行提炼 |
+| ENTITIES 为空 | 跳过实体相关描述，不要编造 |
+| COMPARISONS 为空 | 跳过对比关系，不要强行对比 |
+| RELATED_TOPICS 为空 | 跳过"与相邻概念的关系"章节 |
+| SOURCE_NOTES 为空 | 跳过"继续阅读"中的来源引用，不要编造来源 |
+| CONTENT_DIGEST 为空 | 以 SUMMARY 为主要信息源 |
+| 多个变量为空 | 正文相应精简，但核心解释仍需完成 |
+
+# 输出前自检
+
+- [ ] 是否解释了"这个概念是什么、解决什么问题"
+- [ ] 是否基于来源内容，而非凭空编造
+- [ ] 相邻概念的边界是否说清楚了
+- [ ] 内链是否只指向实际存在的 topic
+- [ ] 是否有空洞的"本文介绍了""这是一篇关于"等废话
+- [ ] 信息不足时是否诚实说明了覆盖范围

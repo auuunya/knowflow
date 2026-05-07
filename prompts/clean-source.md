@@ -173,6 +173,79 @@
 - 数组内不要出现 `null`
 - 如果 `keep=false`，仍然给出尽力而为的 `type`、`title`、`summary`
 
+# 篇幅指引
+
+- `summary`：1 到 2 句话，30 到 80 字
+- `tags`：3 到 6 个
+- `entities`：0 到 8 个
+- `comparisons`：0 到 3 个
+- 不要为了凑数量填充无意义的 tag 或 entity
+
+# 输入异常处理
+
+| 情况 | 处理 |
+|---|---|
+| content 为空或只有空白 | `keep: false`, `type: "trash"` |
+| content 少于 30 字 | 默认 `type: "fragment"`，除非内容明确是完整知识点 |
+| content 是纯命令/代码块无说明 | `type: "memo"`，summary 描述命令用途 |
+| content 是 URL 或链接列表 | `type: "fragment"`，summary 标注为链接集合 |
+| content 语言混杂（中英日等） | 正常处理，topic 和 summary 使用中文 |
+
+# 输出前自检
+
+输出 JSON 前，检查以下项：
+
+- [ ] `type` 分类是否准确（knowledge/fragment/memo/trash）
+- [ ] `keep` 值是否与 `type` 逻辑一致
+- [ ] `topic` 是否为领域概念名（不是文章标题或操作描述）
+- [ ] `topic` 是否为小写 kebab-case
+- [ ] `tags` 是否在 3 到 6 个之间
+- [ ] `summary` 是否写了具体结论/机制（不是"介绍了 X"）
+- [ ] `entities` 中的 name 是否为实体名（不是解释句）
+- [ ] `comparisons` 中的 left/right 是否为可识别对象名
+- [ ] JSON 是否可解析，所有 key 是否存在
+
+如果任一项不通过，修正后再输出。
+
+# 示例
+
+输入：
+
+```
+今天试了下 git rebase -i，把最近 3 个 commit 合并成 1 个。
+
+步骤：
+1. git rebase -i HEAD~3
+2. 把后两个 commit 的 pick 改成 squash
+3. 保存退出，编辑合并后的 commit message
+
+注意：如果已经 push 过，rebase 后需要 force push，团队协作时要小心。
+```
+
+输出：
+
+```json
+{{
+  "keep": true,
+  "type": "memo",
+  "title": "git rebase -i 合并多个 commit",
+  "topic": "git",
+  "tags": ["git", "rebase", "commit", "squash", "版本控制"],
+  "summary": "使用 `git rebase -i HEAD~N` 可以将最近 N 个 commit 合并为一个；操作后如已 push 需 force push，团队协作时需谨慎。",
+  "entities": [
+    {{
+      "name": "git",
+      "type": "tool",
+      "summary": "版本控制工具",
+      "aliases": []
+    }}
+  ],
+  "comparisons": []
+}}
+```
+
 # 输入内容
 
 {content}
+
+<!-- 参见 PIPELINE.md 了解输入/输出契约和上下游依赖 -->
