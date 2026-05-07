@@ -2,6 +2,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from core.infra.file_store import iter_raw_source_paths
+
 
 class QueryService:
     _FRONTMATTER_RE = re.compile(r"^\s*---\s*\n(.*?)\n---\s*\n?", re.S)
@@ -212,22 +214,32 @@ class QueryService:
             return []
 
         items: List[Dict[str, Any]] = []
-        for path in sorted(raw_root.rglob("index.md")):
-            if not path.is_file():
+        for path in iter_raw_source_paths(raw_root):
+            source_dir = path.parent if path.is_file() else path
+            rel_dir = str(source_dir.relative_to(raw_root))
+            if rel_dir.startswith("research"):
                 continue
-            if path.relative_to(raw_root).parts[:1] == ("research",):
-                continue
-            text = self.file_store.read_text(path)
-            rel_path = str(path.relative_to(self.config.knowledge_base_dir))
+            if path.is_file():
+                text = self.file_store.read_text(path)
+            else:
+                md_files = sorted(path.glob("*.md"), key=lambda p: p.name)
+                if not md_files:
+                    continue
+                if len(md_files) == 1:
+                    text = self.file_store.read_text(md_files[0])
+                else:
+                    parts = [self.file_store.read_text(f) for f in md_files]
+                    text = "\n\n".join(parts)
+            rel_path = str(source_dir.relative_to(self.config.knowledge_base_dir))
             items.append(
                 {
                     "kind": "raw",
-                    "title": path.parent.name,
+                    "title": source_dir.name,
                     "path": rel_path,
                     "url": "",
                     "summary": text[:240],
                     "body": text,
-                    "meta_fields": [str(path.parent.relative_to(raw_root))],
+                    "meta_fields": [rel_dir],
                 }
             )
         return items

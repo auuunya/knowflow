@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
+from core.infra.file_store import iter_raw_source_paths
+
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,18 @@ class CleanerService:
         for pattern, replacement in self._SENSITIVE_PATTERNS:
             sanitized = pattern.sub(replacement, sanitized)
         return sanitized
+
+    def _read_and_merge_md_files(self, dir_path: Path) -> str:
+        """读取目录下所有 .md 文件并合并。单文件直接返回内容，多文件加分隔标记。"""
+        md_files = sorted(dir_path.glob("*.md"), key=lambda p: p.name)
+        if not md_files:
+            return ""
+        if len(md_files) == 1:
+            return self.file_store.read_text(md_files[0])
+        parts = []
+        for md_file in md_files:
+            parts.append(f"--- 文件: {md_file.name} ---\n{self.file_store.read_text(md_file)}")
+        return "\n\n".join(parts)
 
     def _analyze(self, content: str):
         payload = {"content": self._desensitize(content)}
@@ -193,6 +207,89 @@ class CleanerService:
         return missing
 
     def _clean_one(self, md_path: Path) -> None:
+        if md_path.is_dir():
+            index_md = md_path / "index.md"
+            if index_md.is_file():
+                self._clean_file(index_md)
+            else:
+                self._clean_dir(md_path)
+            return
+        if md_path.is_file():
+            self._clean_file(md_path)
+            return
+        logger.warning("clean 跳过不存在的路径: %s", md_path)
+
+    def _clean_dir(self, dir_path: Path) -> None:
+        """处理没有 index.md 的目录：合并所有 .md 文件作为一个 source。"""
+        if self._is_research_draft(dir_path):
+            logger.info("skip generated research draft dir during clean: %s", dir_path)
+            return
+
+        md_files = sorted(dir_path.glob("*.md"), key=lambda p: p.name)
+        if not md_files:
+            logger.warning("clean 跳过无 .md 文件的目录: %s", dir_path)
+            return
+
+        meta_path = self.config.meta_path_for(dir_path)
+        rel_path = dir_path.relative_to(self.config.raw_dir).as_posix()
+
+        if self.config.clean_skip_existing:
+            meta = self._load_existing_meta(dir_path)
+            if meta:
+                missing_fields = self._missing_reusable_fields(meta)
+                if meta.get("keep") is False:
+                    logger.info("已有 meta keep=false，跳过: %s", rel_path)
+                    return
+                if not missing_fields:
+                    self.file_store.save_json(meta_path, meta)
+                    self.index_repository.update_index(meta, rel_path)
+                    logger.info("skip clean (existing meta): %s", rel_path)
+                    return
+
+                logger.info(
+                    "已有 meta 不完整，重新分析: %s missing=%s",
+                    rel_path,
+                    ",".join(missing_fields),
+                )
+
+        try:
+            content = self._read_and_merge_md_files(dir_path)
+        except Exception as exc:
+            logger.error("读取目录 %s 失败: %s", dir_path, exc)
+            return
+
+        if not content.strip():
+            logger.warning("目录内容为空，已跳过: %s", dir_path)
+            return
+
+        try:
+            meta = self._normalize_meta(self._analyze(content))
+        except Exception as exc:
+            logger.error("分析 %s 失败: %s", dir_path, exc)
+            return
+        if not meta:
+            logger.warning("目录内容解析失败，已跳过: %s", dir_path)
+            return
+        if not meta.get("title"):
+            meta["title"] = dir_path.name
+        if meta.get("keep") is False:
+            logger.info("标记为不保留，跳过: %s", dir_path)
+            return
+
+        missing_fields = self._missing_reusable_fields(meta)
+        if missing_fields:
+            logger.warning("新生成 meta 仍不完整: %s missing=%s", rel_path, ",".join(missing_fields))
+
+        try:
+            self.file_store.save_json(meta_path, meta)
+        except Exception as exc:
+            logger.error("保存 meta 失败 %s: %s", meta_path, exc)
+            return
+
+        self.index_repository.update_index(meta, rel_path)
+        logger.info("cleaned (dir): %s", meta.get("title"))
+
+    def _clean_file(self, md_path: Path) -> None:
         if not md_path.is_file():
             logger.warning("clean 跳过不存在的 index.md: %s", md_path)
             return
@@ -258,11 +355,10 @@ class CleanerService:
     def clean(self) -> None:
         logger = logging.getLogger(__name__)
         logger.info("cleaning...")
-        raw_root = Path(self.config.raw_dir)
         self.index_repository.reset_index()
 
-        for md_path in sorted(raw_root.rglob("index.md"), key=lambda p: p.as_posix()):
-            self._clean_one(md_path)
+        for raw_path in iter_raw_source_paths(self.config.raw_dir):
+            self._clean_one(raw_path)
 
     def clean_paths(self, raw_paths: List[Any]) -> None:
         logger.info("cleaning selected paths...")

@@ -39,7 +39,7 @@ class QueryServiceTests(unittest.TestCase):
 
             self.assertTrue(results)
             self.assertEqual(results[0]["kind"], "raw")
-            self.assertEqual(results[0]["path"], "_raw/articles/systems/compiler-demo/index.md")
+            self.assertEqual(results[0]["path"], "_raw/articles/systems/compiler-demo")
 
     def test_query_skips_generated_research_drafts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -59,9 +59,13 @@ class CompilerService:
                 continue
             seen.add(slug)
 
-            rel_dir = Path(rel_path).parent
+            raw_path = Path(self.config.raw_dir) / rel_path
+            if raw_path.is_dir():
+                fallback_name = raw_path.name
+            else:
+                fallback_name = raw_path.parent.name
             meta = self._load_source_meta(rel_path)
-            title = str(meta.get("title") or rel_dir.name).strip() or rel_dir.name
+            title = str(meta.get("title") or fallback_name).strip() or fallback_name
             related_sources.append(
                 {
                     "title": title,
@@ -98,6 +102,19 @@ class CompilerService:
         }
         return hashlib.md5(repr(payload).encode("utf-8")).hexdigest()
 
+    def _read_raw_path(self, path: Path) -> str:
+        if path.is_file():
+            return self.file_store.read_text(path)
+        if path.is_dir():
+            md_files = sorted(path.glob("*.md"), key=lambda p: p.name)
+            if not md_files:
+                return ""
+            if len(md_files) == 1:
+                return self.file_store.read_text(md_files[0])
+            parts = [self.file_store.read_text(f) for f in md_files]
+            return "\n\n".join(parts)
+        return ""
+
     def _collect_contents(self, data: Dict[str, Any]) -> List[str]:
         contents: List[str] = []
         for item in data.get("files", []):
@@ -106,10 +123,12 @@ class CompilerService:
             if self._is_research_draft_rel_path(item):
                 continue
             path = Path(self.config.raw_dir) / item
-            if not path.is_file():
+            if not path.exists():
                 continue
             try:
-                contents.append(self.file_store.read_text(path))
+                text = self._read_raw_path(path)
+                if text:
+                    contents.append(text)
             except Exception as exc:
                 logger.error("读取编译源文件失败: %s, %s", path, exc)
         return contents
@@ -185,7 +204,8 @@ class CompilerService:
         self,
         title: str,
         slug: str,
-        date_text: str,
+        created_at: str,
+        updated_at: str,
         concepts: List[str],
     ) -> str:
         normalized_title = self._coerce_title(title)
@@ -193,7 +213,9 @@ class CompilerService:
         return (
             "---\n"
             f"title: {json.dumps(normalized_title, ensure_ascii=False)}\n"
-            f"date: {date_text}\n"
+            f"date: {updated_at}\n"
+            f"created_at: {created_at}\n"
+            f"updated_at: {updated_at}\n"
             f"slug: {json.dumps(slug, ensure_ascii=False)}\n"
             "type: post\n"
             "draft: false\n"
@@ -413,8 +435,6 @@ class CompilerService:
         seen_nodes: Set[str] = set()
         seen_edges: Set[str] = set()
         concept_nodes: Dict[str, str] = {}
-        source_nodes_by_slug: Dict[str, str] = {}
-        source_nodes_by_path: Dict[str, str] = {}
         topic_source_slugs: Dict[str, List[str]] = {}
         entity_nodes: Dict[str, str] = {}
         comparison_nodes: Dict[str, str] = {}
@@ -427,6 +447,7 @@ class CompilerService:
             url: str = "",
             summary: str = "",
             group_label: str = "",
+            extra: Optional[Dict[str, Any]] = None,
         ) -> None:
             if not node_id or node_id in seen_nodes:
                 return
@@ -441,6 +462,8 @@ class CompilerService:
             }
             if group_label:
                 node["group_label"] = group_label
+            if extra:
+                node.update(extra)
             nodes.append(node)
 
         def add_edge(src: str, dst: str, relation: str = "related") -> None:
@@ -507,25 +530,9 @@ class CompilerService:
                 topic_node_id = ensure_concept_node(topic, 18 + min(len(files), 12))
 
                 for raw_file in files:
-                    source_meta = self._load_source_meta(raw_file)
-                    source_label = str(source_meta.get("title") or Path(raw_file).parent.name or Path(raw_file).stem).strip()
-                    source_summary = str(source_meta.get("summary") or "").strip()
-                    source_node_id = f"source:{raw_file}"
                     source_slug = self._source_slug(raw_file)
                     if source_slug not in topic_source_slugs[topic_slug]:
                         topic_source_slugs[topic_slug].append(source_slug)
-                    add_node(
-                        source_node_id,
-                        source_label,
-                        "source",
-                        12,
-                        "",
-                        source_summary,
-                    )
-                    source_nodes_by_slug[source_slug] = source_node_id
-                    source_nodes_by_path[raw_file] = source_node_id
-                    if topic_node_id:
-                        add_edge(source_node_id, topic_node_id, "source")
 
                 children = data.get("children", {})
                 if isinstance(children, dict):
@@ -573,14 +580,6 @@ class CompilerService:
                         if topic_node_id:
                             add_edge(topic_node_id, entity_node_id, "entity")
 
-                if isinstance(files_for_entity, list):
-                    for raw_file in files_for_entity:
-                        if not isinstance(raw_file, str) or self._is_research_draft_rel_path(raw_file):
-                            continue
-                        source_node_id = source_nodes_by_path.get(raw_file)
-                        if source_node_id:
-                            add_edge(source_node_id, entity_node_id, "entity")
-
         comparisons = index.get("comparisons", {}) if isinstance(index, dict) else {}
         if isinstance(comparisons, dict):
             for comparison_key, comparison_data in comparisons.items():
@@ -613,14 +612,6 @@ class CompilerService:
                         topic_node_id = ensure_concept_node(topic_name, 18)
                         if topic_node_id and comparison_node_id:
                             add_edge(topic_node_id, comparison_node_id, "comparison")
-
-                if isinstance(files_for_comparison, list):
-                    for raw_file in files_for_comparison:
-                        if not isinstance(raw_file, str) or self._is_research_draft_rel_path(raw_file):
-                            continue
-                        source_node_id = source_nodes_by_path.get(raw_file)
-                        if source_node_id and comparison_node_id:
-                            add_edge(source_node_id, comparison_node_id, "comparison")
 
         for rule in index.get("merge", []) if isinstance(index, dict) else []:
             if not isinstance(rule, dict):
@@ -687,7 +678,11 @@ class CompilerService:
                 continue
 
             post_node_id = f"post:{slug}"
-            add_node(post_node_id, title, "post", 14 + min(len(matched_concepts), 6), f"/posts/{slug}/")
+            source_urls: Dict[str, str] = {}
+            for concept_slug in matched_concept_slugs:
+                for source_slug in topic_source_slugs.get(concept_slug, []):
+                    source_urls[source_slug] = f"/sources/{source_slug}/"
+            add_node(post_node_id, title, "post", 14 + min(len(matched_concepts), 6), f"/posts/{slug}/", extra={"source_urls": source_urls} if source_urls else None)
             for concept_node_id in matched_concepts:
                 add_edge(post_node_id, concept_node_id, "explains")
             mentioned_concepts = self._extract_mentioned_concepts(post_text)
@@ -695,11 +690,6 @@ class CompilerService:
                 concept_node_id = concept_nodes.get(self._slug(mentioned_slug))
                 if concept_node_id and concept_node_id not in matched_concepts:
                     add_edge(post_node_id, concept_node_id, "mentions")
-            for concept_slug in matched_concept_slugs:
-                for source_slug in topic_source_slugs.get(concept_slug, []):
-                    source_node_id = source_nodes_by_slug.get(source_slug)
-                    if source_node_id:
-                        add_edge(post_node_id, source_node_id, "compiled-from")
 
         graph_path = Path(self.config.private_knowledge_graph_path)
         graph_path.parent.mkdir(parents=True, exist_ok=True)
@@ -941,10 +931,21 @@ class CompilerService:
             except Exception:
                 logger.debug("清理旧文件失败: %s", old_path, exc_info=True)
 
+        today = date.today().isoformat()
+        created_at = today
+        if out_path.exists():
+            try:
+                existing_text = self.file_store.read_text(out_path)
+                existing_meta = self._parse_frontmatter(existing_text)
+                created_at = existing_meta.get("created_at") or existing_meta.get("date") or today
+            except Exception:
+                logger.debug("读取已有文件 created_at 失败: %s", out_path, exc_info=True)
+
         frontmatter = self._build_frontmatter(
             title=title,
             slug=effective_slug,
-            date_text=date.today().isoformat(),
+            created_at=created_at,
+            updated_at=today,
             concepts=concepts,
         )
 

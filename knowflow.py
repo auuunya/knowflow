@@ -108,6 +108,26 @@ def _run_public_pipeline(compiler, audit_service, log_service, *, command_name: 
     return payload
 
 
+def _run_only_pipeline(cleaner, compiler, policy, topic_page, source_page, log_service, audit_service, *, raw_path: str, command_name: str) -> None:
+    cleaner.clean_paths([raw_path])
+    policy.reconcile_index()
+    topic_page.build_topics()
+    source_page.build_sources()
+
+    try:
+        compiler.build_private_graph()
+    except Exception:
+        logging.getLogger(__name__).exception("private knowledge graph 生成失败")
+
+    _run_public_pipeline(
+        compiler,
+        audit_service,
+        log_service,
+        command_name=command_name,
+        write_log=True,
+    )
+
+
 def _run_build(cleaner, compiler, policy, split_service, topic_page, source_page, log_service, audit_service, research_draft_service, *, no_split: bool, command_name: str) -> None:
     _run_private_pipeline(
         cleaner,
@@ -300,9 +320,10 @@ def main() -> None:
     cleaner, compiler, policy, split_service, topic_page, source_page, log_service, audit_service, research_draft_service, query_service = build_app_services()
     p = argparse.ArgumentParser(add_help=False, prog="knowflow")
     p.add_argument("cmd", nargs="?")
-    p.add_argument("rest", nargs="*")
     p.add_argument("--no-split", action="store_true", help="build 时跳过 split")
-    args = p.parse_args()
+    p.add_argument("--only", metavar="PATH", help="增量构建：只处理指定的 raw 目录")
+    args, remaining = p.parse_known_args()
+    args.rest = remaining
 
     if not args.cmd:
         print_help()
@@ -310,6 +331,24 @@ def main() -> None:
 
     logger.debug("执行命令: %s", args.cmd)
     if args.cmd == "build":
+        if args.only:
+            if args.rest:
+                print("build --only 不能与 stage 参数一起使用")
+                print_help()
+                raise SystemExit(1)
+            raise SystemExit(
+                _run_only_pipeline(
+                    cleaner,
+                    compiler,
+                    policy,
+                    topic_page,
+                    source_page,
+                    log_service,
+                    audit_service,
+                    raw_path=args.only,
+                    command_name=f"build --only {args.only}",
+                )
+            )
         if len(args.rest) > 1:
             print(f"build 只接受一个 stage，收到: {' '.join(args.rest)}")
             print_help()

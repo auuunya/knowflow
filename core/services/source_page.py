@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from core.config import AppConfig
-from core.infra.file_store import FileStore
+from core.infra.file_store import FileStore, iter_raw_source_paths
 from core.infra.index_repository import IndexRepository
 
 
@@ -16,10 +16,25 @@ logger = logging.getLogger(__name__)
 
 
 class SourcePageService:
+    _FRONTMATTER_RE = re.compile(r"^\s*---\s*\n(.*?)\n---\s*\n?", re.S)
+
     def __init__(self, config: AppConfig, file_store: FileStore, index_repository: IndexRepository):
         self.config = config
         self.file_store = file_store
         self.index_repository = index_repository
+
+    @staticmethod
+    def _extract_created_at(text: str) -> Optional[str]:
+        match = SourcePageService._FRONTMATTER_RE.match(text or "")
+        if not match:
+            return None
+        for line in match.group(1).splitlines():
+            stripped = line.strip()
+            if stripped.startswith("created_at:"):
+                return stripped.split(":", 1)[1].strip()
+            if stripped.startswith("date:"):
+                return stripped.split(":", 1)[1].strip()
+        return None
 
     @staticmethod
     def _is_under(path: Path, parent: Path) -> bool:
@@ -176,6 +191,8 @@ class SourcePageService:
         index: Dict[str, Any],
         excerpt: str,
         assets: List[str],
+        created_at: str = "",
+        updated_at: str = "",
     ) -> str:
         raw_topic = str(meta.get("topic") or "").strip()
         topic = self.index_repository.canonicalize_topic(index, raw_topic) or raw_topic
@@ -189,10 +206,12 @@ class SourcePageService:
             if not assets
             else "".join(f"- [{name}](<{name}>)\n" for name in assets)
         )
+        today = date.today().isoformat()
         frontmatter = (
             "---\n"
             f"title: \"{self._yaml_escape(title)}\"\n"
-            f"date: {date.today().isoformat()}\n"
+            f"created_at: {created_at or today}\n"
+            f"updated_at: {updated_at or today}\n"
             "type: source\n"
             f"slug: {slug}\n"
             f"source_kind: \"{self._yaml_escape(source_kind)}\"\n"
@@ -228,18 +247,32 @@ class SourcePageService:
     def _iter_source_dirs(self) -> List[Path]:
         raw_root = Path(self.config.raw_dir)
         source_dirs: List[Path] = []
-        for raw_path in raw_root.rglob("index.md"):
-            if not raw_path.is_file():
-                continue
-            if self._is_research_draft_dir(raw_path.parent):
-                logger.info("skip research draft source page: %s", raw_path.parent)
+        for raw_path in iter_raw_source_paths(raw_root):
+            source_dir = raw_path.parent if raw_path.is_file() else raw_path
+            if self._is_research_draft_dir(source_dir):
+                logger.info("skip research draft source page: %s", source_dir)
                 continue
             if self.config.meta_path_for(raw_path).is_file():
-                source_dirs.append(raw_path.parent)
-        return sorted(source_dirs, key=lambda p: p.as_posix())
+                source_dirs.append(source_dir)
+        return sorted(set(source_dirs), key=lambda p: p.as_posix())
+
+    def _read_raw_text(self, source_dir: Path) -> str:
+        index_md = source_dir / "index.md"
+        if index_md.is_file():
+            return self.file_store.read_text(index_md)
+        md_files = sorted(source_dir.glob("*.md"), key=lambda p: p.name)
+        if not md_files:
+            return ""
+        if len(md_files) == 1:
+            return self.file_store.read_text(md_files[0])
+        parts = []
+        for md_file in md_files:
+            parts.append(f"--- 文件: {md_file.name} ---\n{self.file_store.read_text(md_file)}")
+        return "\n\n".join(parts)
 
     def _build_one(self, source_dir: Path, cache: Dict[str, str], index: Dict[str, Any]) -> Optional[Tuple[str, str, str]]:
-        raw_path = source_dir / "index.md"
+        index_md = source_dir / "index.md"
+        raw_path = index_md if index_md.is_file() else source_dir
         rel_dir = source_dir.relative_to(self.config.raw_dir).as_posix()
         meta_path = self.config.meta_path_for(raw_path)
         meta = self._load_meta(raw_path)
@@ -252,22 +285,32 @@ class SourcePageService:
             return None
 
         try:
-            raw_text = self.file_store.read_text(raw_path)
+            raw_text = self._read_raw_text(source_dir)
         except Exception as exc:
-            logger.error("读取 source 原文失败: %s, %s", raw_path, exc)
+            logger.error("读取 source 原文失败: %s, %s", source_dir, exc)
             return None
 
         title = str(meta.get("title") or source_dir.name).strip() or source_dir.name
         slug = self.config.source_slug_for(raw_path)
         source_kind = rel_dir.split("/", 1)[0] if "/" in rel_dir else rel_dir
         bundle_dir = Path(self.config.sources_dir) / slug
+        out_path = bundle_dir / "index.md"
         assets = self._collect_assets(source_dir)
         asset_manifest = self._asset_manifest(source_dir, assets)
         excerpt = self._excerpt(raw_text)
         canonical_topic = self.index_repository.canonicalize_topic(index, meta.get("topic")) or str(meta.get("topic") or "").strip()
-        content = self._compose_markdown(bundle_dir, title, slug, rel_dir, source_kind, meta, index, excerpt, assets)
+
+        today = date.today().isoformat()
+        created_at = today
+        if out_path.exists():
+            try:
+                existing_text = self.file_store.read_text(out_path)
+                created_at = self._extract_created_at(existing_text) or today
+            except Exception:
+                logger.debug("读取已有 source 页面 created_at 失败: %s", out_path, exc_info=True)
+
+        content = self._compose_markdown(bundle_dir, title, slug, rel_dir, source_kind, meta, index, excerpt, assets, created_at=created_at, updated_at=today)
         new_hash = self._calc_hash(rel_dir, meta, raw_text, asset_manifest, canonical_topic)
-        out_path = bundle_dir / "index.md"
         cache_key = str(out_path)
 
         if cache.get(cache_key) == new_hash and out_path.exists():

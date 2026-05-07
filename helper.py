@@ -1,6 +1,5 @@
 from textwrap import dedent
 
-
 HELP_TEXT = dedent(
     """\
     ====================================================
@@ -9,12 +8,14 @@ HELP_TEXT = dedent(
 
     用法
       python3 knowflow.py build [stage] [--no-split]
+      python3 knowflow.py build --only <path>
       python3 knowflow.py lint
       python3 knowflow.py query <keyword>
       python3 knowflow.py research
 
     常用命令
       build          运行完整编译流程
+      build --only   增量构建：只处理指定 raw 目录，自动跳过 split
       build private  仅重建 private wiki / index / private graph
       build public   基于现有 private 结果重建 public 内容
       lint           校验知识库，输出 blocking / warning
@@ -27,6 +28,7 @@ HELP_TEXT = dedent(
 
     示例
       python3 knowflow.py build
+      python3 knowflow.py build --only _raw/articles/
       python3 knowflow.py build private
       python3 knowflow.py build audit
       python3 knowflow.py lint

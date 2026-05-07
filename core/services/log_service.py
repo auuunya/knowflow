@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict
 
 from core.config import AppConfig
-from core.infra.file_store import FileStore
+from core.infra.file_store import FileStore, iter_raw_source_paths
 
 
 logger = logging.getLogger(__name__)
@@ -26,11 +26,12 @@ class LogService:
 
     def _count_raw_sources(self) -> int:
         raw_root = Path(self.config.raw_dir)
-        return sum(
-            1
-            for path in raw_root.rglob("index.md")
-            if path.is_file() and not (path.relative_to(raw_root).parts[:1] == ("research",))
-        )
+        count = 0
+        for path in iter_raw_source_paths(raw_root):
+            rel_dir = path.parent.relative_to(raw_root).as_posix() if path.is_file() else path.relative_to(raw_root).as_posix()
+            if not rel_dir.startswith("research"):
+                count += 1
+        return count
 
     def _collect_stats(self) -> Dict[str, int]:
         return {

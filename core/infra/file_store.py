@@ -1,10 +1,30 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 
 logger = logging.getLogger(__name__)
+
+
+def iter_raw_source_paths(raw_dir: Union[str, Path]) -> List[Path]:
+    """枚举 raw_dir 下所有 source 路径（含 index.md 的目录 + 无 index.md 的 .md 目录）。"""
+    raw_root = Path(raw_dir)
+    indexed_dirs: set[Path] = set()
+    result: List[Path] = []
+
+    for md_path in sorted(raw_root.rglob("index.md"), key=lambda p: p.as_posix()):
+        if md_path.is_file():
+            indexed_dirs.add(md_path.parent)
+            result.append(md_path)
+
+    for md_path in sorted(raw_root.rglob("*.md"), key=lambda p: p.as_posix()):
+        parent = md_path.parent
+        if parent.is_dir() and parent not in indexed_dirs:
+            indexed_dirs.add(parent)
+            result.append(parent)
+
+    return result
 
 
 # 文件存储层：封装文本/JSON 的读写，统一处理异常与编码

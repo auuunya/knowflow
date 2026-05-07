@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from core.infra.file_store import iter_raw_source_paths
+
 
 logger = logging.getLogger(__name__)
 
@@ -165,11 +167,12 @@ class AuditService:
 
     def _count_raw_docs(self) -> int:
         raw_root = Path(self.config.raw_dir)
-        return sum(
-            1
-            for path in raw_root.rglob("index.md")
-            if path.is_file() and not self._is_generated_research_dir(path.relative_to(raw_root).parent.as_posix())
-        )
+        count = 0
+        for path in iter_raw_source_paths(raw_root):
+            rel_dir = path.parent.relative_to(raw_root).as_posix() if path.is_file() else path.relative_to(raw_root).as_posix()
+            if not self._is_generated_research_dir(rel_dir):
+                count += 1
+        return count
 
     def _count_metadata_docs(self) -> int:
         metadata_root = Path(self.config.metadata_dir)
@@ -193,11 +196,12 @@ class AuditService:
         raw_root = Path(self.config.raw_dir)
         metadata_root = Path(self.config.metadata_dir)
 
-        raw_docs = sorted(
-            path.relative_to(raw_root).parent.as_posix()
-            for path in raw_root.rglob("index.md")
-            if path.is_file() and not self._is_generated_research_dir(path.relative_to(raw_root).parent.as_posix())
-        )
+        raw_docs = []
+        for path in iter_raw_source_paths(raw_root):
+            rel_dir = path.parent.relative_to(raw_root).as_posix() if path.is_file() else path.relative_to(raw_root).as_posix()
+            if not self._is_generated_research_dir(rel_dir):
+                raw_docs.append(rel_dir)
+        raw_docs.sort()
         meta_docs = sorted(
             path.relative_to(metadata_root).parent.as_posix()
             for path in metadata_root.rglob("meta.json")

@@ -257,11 +257,21 @@ class TopicPageService:
 
     def _read_raw_excerpt(self, rel_path: str, limit: int = 1200) -> str:
         raw_path = Path(self.config.raw_dir) / rel_path
-        if not raw_path.is_file():
-            return ""
 
         try:
-            text = self.file_store.read_text(raw_path)
+            if raw_path.is_file():
+                text = self.file_store.read_text(raw_path)
+            elif raw_path.is_dir():
+                md_files = sorted(raw_path.glob("*.md"), key=lambda p: p.name)
+                if not md_files:
+                    return ""
+                if len(md_files) == 1:
+                    text = self.file_store.read_text(md_files[0])
+                else:
+                    parts = [self.file_store.read_text(f) for f in md_files]
+                    text = "\n\n".join(parts)
+            else:
+                return ""
         except Exception:
             logger.debug("读取 raw excerpt 失败: %s", raw_path, exc_info=True)
             return ""
