@@ -173,6 +173,32 @@
 - 数组内不要出现 `null`
 - 如果 `keep=false`，仍然给出尽力而为的 `type`、`title`、`summary`
 
+# 输入异常处理
+
+| 情况 | 处理 |
+|---|---|
+| content 为空或只有空白 | `keep: false`, `type: "trash"` |
+| content 少于 30 字 | 默认 `type: "fragment"`，除非内容明确是完整知识点 |
+| content 是纯命令/代码块无说明 | `type: "memo"`，summary 描述命令用途 |
+| content 是 URL 或链接列表 | `type: "fragment"`，summary 标注为链接集合 |
+| content 语言混杂（中英日等） | 正常处理，topic 和 summary 使用中文 |
+
+# 输出前自检
+
+输出 JSON 前，检查以下项：
+
+- [ ] `type` 分类是否准确（knowledge/fragment/memo/trash）
+- [ ] `keep` 值是否与 `type` 逻辑一致
+- [ ] `topic` 是否为领域概念名（不是文章标题或操作描述）
+- [ ] `topic` 是否为小写 kebab-case
+- [ ] `tags` 是否在 3 到 6 个之间
+- [ ] `summary` 是否写了具体结论/机制（不是"介绍了 X"）
+- [ ] `entities` 中的 name 是否为实体名（不是解释句）
+- [ ] `comparisons` 中的 left/right 是否为可识别对象名
+- [ ] JSON 是否可解析，所有 key 是否存在
+
+如果任一项不通过，修正后再输出。
+
 # 输入内容
 
 {content}
