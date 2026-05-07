@@ -225,7 +225,7 @@
 输出：
 
 ```json
-{
+{{
   "keep": true,
   "type": "memo",
   "title": "git rebase -i 合并多个 commit",
@@ -233,15 +233,15 @@
   "tags": ["git", "rebase", "commit", "squash", "版本控制"],
   "summary": "使用 `git rebase -i HEAD~N` 可以将最近 N 个 commit 合并为一个；操作后如已 push 需 force push，团队协作时需谨慎。",
   "entities": [
-    {
+    {{
       "name": "git",
       "type": "tool",
       "summary": "版本控制工具",
       "aliases": []
-    }
+    }}
   ],
   "comparisons": []
-}
+}}
 ```
 
 # 输入内容

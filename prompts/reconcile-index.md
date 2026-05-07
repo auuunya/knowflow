@@ -133,51 +133,51 @@
 输入（简化）：
 
 ```json
-{
+{{
   "topics": [
-    {
+    {{
       "topic": "git",
       "summary": "Git 版本控制系统的核心概念与使用方法",
       "files": ["git-commit.md", "git-branch.md", "git-remote.md"],
       "tags": ["git", "version-control"]
-    },
-    {
+    }},
+    {{
       "topic": "git-cli",
       "summary": "Git 命令行工具的使用技巧",
       "files": ["git-commit.md", "git-branch.md"],
       "tags": ["git", "cli"]
-    },
-    {
+    }},
+    {{
       "topic": "linux",
       "summary": "Linux 系统管理与网络配置",
       "files": ["linux-network.md", "linux-storage.md", "linux-process.md", "linux-firewall.md", "linux-systemd.md", "linux-permissions.md", "linux-users.md", "linux-cron.md", "linux-package.md"],
       "tags": ["linux", "system"]
-    }
+    }}
   ],
   "merge_candidates": [
-    {"left": "git", "right": "git-cli", "evidence": "files 交叉 67%"}
+    {{"left": "git", "right": "git-cli", "evidence": "files 交叉 67%"}}
   ]
-}
+}}
 ```
 
 输出：
 
 ```json
-{
+{{
   "merge": [
-    {
+    {{
       "target": "git",
       "sources": ["git-cli"]
-    }
+    }}
   ],
   "split": [
-    {
+    {{
       "source": "linux",
       "targets": ["linux-network", "linux-storage", "linux-process"]
-    }
+    }}
   ],
   "rename": []
-}
+}}
 ```
 
 理由：
