@@ -119,9 +119,7 @@
 | topic 缺少 files | 不做 split 判断，可以做 merge/rename |
 | merge_candidates 为空 | 不做 merge（没有候选），可以做 split/rename |
 
-# 治理质量检查
-
-输出前自查：
+# 输出前自检
 
 - [ ] merge 是否有充分证据（不只是名字相似）
 - [ ] merge 后是否丢失了文件

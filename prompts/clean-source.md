@@ -173,6 +173,14 @@
 - 数组内不要出现 `null`
 - 如果 `keep=false`，仍然给出尽力而为的 `type`、`title`、`summary`
 
+# 篇幅指引
+
+- `summary`：1 到 2 句话，30 到 80 字
+- `tags`：3 到 6 个
+- `entities`：0 到 8 个
+- `comparisons`：0 到 3 个
+- 不要为了凑数量填充无意义的 tag 或 entity
+
 # 输入异常处理
 
 | 情况 | 处理 |
