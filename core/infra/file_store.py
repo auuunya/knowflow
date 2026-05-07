@@ -7,9 +7,12 @@ from typing import Any, Dict, List, Union
 logger = logging.getLogger(__name__)
 
 
+_IGNORED_MD_NAMES = {"readme.md", "license.md", "changelog.md"}
+
+
 def iter_raw_source_paths(raw_dir: Union[str, Path]) -> List[Path]:
     """枚举 raw_dir 下所有 source 路径（含 index.md 的目录 + 无 index.md 的 .md 目录）。"""
-    raw_root = Path(raw_dir)
+    raw_root = Path(raw_dir).resolve()
     indexed_dirs: set[Path] = set()
     result: List[Path] = []
 
@@ -19,7 +22,11 @@ def iter_raw_source_paths(raw_dir: Union[str, Path]) -> List[Path]:
             result.append(md_path)
 
     for md_path in sorted(raw_root.rglob("*.md"), key=lambda p: p.as_posix()):
+        if md_path.name.lower() in _IGNORED_MD_NAMES:
+            continue
         parent = md_path.parent
+        if parent == raw_root:
+            continue
         if parent.is_dir() and parent not in indexed_dirs:
             indexed_dirs.add(parent)
             result.append(parent)
