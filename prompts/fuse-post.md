@@ -15,10 +15,14 @@
 
 # 输入
 
-INDEX：当前 topic 的知识结构（包含 topic / summary / files 等）
-CONTENT：原始笔记集合
-TOPICS：已有概念列表
-TOPIC_MAP：概念与摘要映射（topic -> summary）
+| 变量 | 类型 | 必须 | 说明 |
+|---|---|---|---|
+| `{index}` | Index JSON | 是 | 当前 topic 的索引条目（来自 reconcile-index） |
+| `{content}` | Note[] | 是 | 原始笔记集合（来自 clean-source，keep=true） |
+| `{topics}` | string[] | 否 | 已有概念列表，用于内链匹配 |
+| `{topic_map}` | object | 否 | topic→summary 映射 |
+
+参见 [PIPELINE.md](./PIPELINE.md) 了解完整流程契约。
 
 # 写作目标
 

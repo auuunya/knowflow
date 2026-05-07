@@ -117,3 +117,5 @@ files: [“git-branch-merge.md”, “git-rebase-guide.md”, “git-commit-msg.
 - [ ] 如果无法自信拆分，是否返回了空 children
 
 如果任一项不通过，修正后再输出。
+
+<!-- 参见 PIPELINE.md 了解输入/输出契约和上下游依赖 -->

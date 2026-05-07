@@ -15,22 +15,22 @@
 
 # 输入
 
-TOPIC: {topic}
-SUMMARY: {summary}
-TAGS: {tags}
-ENTITIES: {entities}
-COMPARISONS: {comparisons}
+| 变量 | 类型 | 必须 | 说明 |
+|---|---|---|---|
+| `{topic}` | string | 是 | 概念名 |
+| `{summary}` | string | 是 | 概念摘要 |
+| `{tags}` | string[] | 否 | 标签 |
+| `{entities}` | object[] | 否 | 相关实体（来自 clean-source） |
+| `{comparisons}` | object[] | 否 | 对比关系（来自 clean-source） |
+| `{topics}` | string[] | 否 | 已有概念列表 |
+| `{topic_map}` | object | 否 | topic→summary 映射 |
+| `{related_topics}` | string[] | 否 | 相关概念 |
+| `{source_notes}` | object[] | 否 | 来源笔记信息 |
+| `{content_digest}` | string | 否 | 内容摘要 |
+
+参见 [PIPELINE.md](./PIPELINE.md) 了解完整流程契约。
 
 TOPICS:
-{topics}
-
-TOPIC_MAP:
-{topic_map}
-
-RELATED_TOPICS:
-{related_topics}
-
-SOURCE_NOTES:
 {source_notes}
 
 CONTENT_DIGEST:
