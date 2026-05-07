@@ -207,6 +207,43 @@
 
 如果任一项不通过，修正后再输出。
 
+# 示例
+
+输入：
+
+```
+今天试了下 git rebase -i，把最近 3 个 commit 合并成 1 个。
+
+步骤：
+1. git rebase -i HEAD~3
+2. 把后两个 commit 的 pick 改成 squash
+3. 保存退出，编辑合并后的 commit message
+
+注意：如果已经 push 过，rebase 后需要 force push，团队协作时要小心。
+```
+
+输出：
+
+```json
+{
+  "keep": true,
+  "type": "memo",
+  "title": "git rebase -i 合并多个 commit",
+  "topic": "git",
+  "tags": ["git", "rebase", "commit", "squash", "版本控制"],
+  "summary": "使用 `git rebase -i HEAD~N` 可以将最近 N 个 commit 合并为一个；操作后如已 push 需 force push，团队协作时需谨慎。",
+  "entities": [
+    {
+      "name": "git",
+      "type": "tool",
+      "summary": "版本控制工具",
+      "aliases": []
+    }
+  ],
+  "comparisons": []
+}
+```
+
 # 输入内容
 
 {content}

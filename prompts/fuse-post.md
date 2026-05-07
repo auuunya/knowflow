@@ -136,6 +136,49 @@ TOPIC_MAP:
 - [ ] 是否有编造案例、命令结果、数据的情况
 - [ ] 内链是否只指向实际存在的 topic
 
+# 示例
+
+输入（简化）：
+
+```
+INDEX: topic="docker-network", summary="Docker 容器网络模型..."
+CONTENT:
+  来源A: "Docker 默认使用 bridge 网络，容器通过 veth pair 连接宿主机的 docker0 网桥。"
+  来源B: "使用 --network=host 可以让容器直接使用宿主机网络栈，性能更好但失去隔离。"
+  来源C: "overlay 网络用于跨主机通信，是 Docker Swarm 的基础。"
+```
+
+输出（节选）：
+
+```markdown
+## 概述
+
+Docker 容器网络以驱动（driver）为单位提供不同通信模式，核心问题是：容器之间、容器与宿主机之间、跨主机之间如何互通。
+
+## 核心概念
+
+Docker 提供三种主要网络模式：
+
+| 模式 | 通信范围 | 隔离性 | 性能 |
+|---|---|---|---|
+| bridge | 同宿主机容器间 | 有 | 一般 |
+| host | 容器↔宿主机 | 无 | 最好 |
+| overlay | 跨主机容器间 | 有 | 有开销 |
+
+## 工作原理
+
+**bridge 模式**：Docker 安装时自动创建 docker0 网桥，每个容器通过 veth pair 连接到网桥，获得独立 IP。
+
+**host 模式**：容器不创建独立网络命名空间，直接使用宿主机的网卡和端口。
+
+**overlay 模式**：通过 VXLAN 隧道封装跨主机流量，需要 key-value 存储或 Swarm 协调。
+
+## 注意事项
+
+- host 模式下容器端口直接占用宿主机端口，多容器部署时需注意冲突
+- overlay 网络有额外封装开销，延迟敏感场景需评估
+```
+
 INDEX:
 {index}
 

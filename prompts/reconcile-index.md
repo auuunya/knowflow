@@ -128,5 +128,62 @@
 - [ ] 是否有凭空创建的 topic
 - [ ] 是否有删除 topic（只允许合并，不允许删除）
 
+# 示例
+
+输入（简化）：
+
+```json
+{
+  "topics": [
+    {
+      "topic": "git",
+      "summary": "Git 版本控制系统的核心概念与使用方法",
+      "files": ["git-commit.md", "git-branch.md", "git-remote.md"],
+      "tags": ["git", "version-control"]
+    },
+    {
+      "topic": "git-cli",
+      "summary": "Git 命令行工具的使用技巧",
+      "files": ["git-commit.md", "git-branch.md"],
+      "tags": ["git", "cli"]
+    },
+    {
+      "topic": "linux",
+      "summary": "Linux 系统管理与网络配置",
+      "files": ["linux-network.md", "linux-storage.md", "linux-process.md", "linux-firewall.md", "linux-systemd.md", "linux-permissions.md", "linux-users.md", "linux-cron.md", "linux-package.md"],
+      "tags": ["linux", "system"]
+    }
+  ],
+  "merge_candidates": [
+    {"left": "git", "right": "git-cli", "evidence": "files 交叉 67%"}
+  ]
+}
+```
+
+输出：
+
+```json
+{
+  "merge": [
+    {
+      "target": "git",
+      "sources": ["git-cli"]
+    }
+  ],
+  "split": [
+    {
+      "source": "linux",
+      "targets": ["linux-network", "linux-storage", "linux-process"]
+    }
+  ],
+  "rename": []
+}
+```
+
+理由：
+- `git` 和 `git-cli` 语义高度重叠（都是 Git），files 交叉 67%，merge 为 `git`
+- `linux` 有 9 个 files 涉及多个子领域（网络、存储、进程），拆分为 3 个稳定子 topic
+- 无需 rename
+
 INDEX:
 {index}
