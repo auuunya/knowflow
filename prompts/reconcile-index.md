@@ -19,10 +19,26 @@
 
 两个 topic 可以合并如果：
 
-- 语义高度重叠（>70%）
+- 语义高度重叠（>70%）：两个 topic 的 summary 描述的是同一件事，只是措辞不同
 - 只是命名不同（如 Git / git-cli / git tools）
-- files 内容交叉超过 50%
+- files 内容交叉超过 50%：两个 topic 的 files 列表中有大量重叠
 - 或 tags / entities / comparisons / merge_candidates 给出了强一致证据
+
+判断"语义重叠 >70%"的方法：
+
+- 两个 summary 是否能用同一句话概括
+- 两个 topic 的 tags 是否大部分重叠
+- 两个 topic 的核心 entities 是否相同
+- 如果只是"相关"但不是"重叠"，不要 merge
+
+示例：
+
+| topic A | topic B | 是否 merge | 理由 |
+|---|---|---|---|
+| `git` | `git-cli` | 是 | 命名不同，语义完全重叠 |
+| `docker` | `container` | 视情况 | 如果 container 仅指 Docker 则 merge；如果包含 Podman 则不 merge |
+| `linux-network` | `linux-storage` | 否 | 虽然都是 linux 子领域，但语义不重叠 |
+| `vim` | `neovim` | 视情况 | 如果内容高度重叠则 merge；如果各有独立内容则保留为 related |
 
 ## split 条件
 
@@ -93,6 +109,26 @@
   ]
 }}
 ```
+
+# 输入处理
+
+| 情况 | 处理 |
+|---|---|
+| INDEX 为空或只有 1 个 topic | 无法治理，返回空操作 |
+| topic 缺少 summary | 不做 merge 判断（证据不足），可以做 rename |
+| topic 缺少 files | 不做 split 判断，可以做 merge/rename |
+| merge_candidates 为空 | 不做 merge（没有候选），可以做 split/rename |
+
+# 治理质量检查
+
+输出前自查：
+
+- [ ] merge 是否有充分证据（不只是名字相似）
+- [ ] merge 后是否丢失了文件
+- [ ] split 后子 topic 是否稳定、可独立存在
+- [ ] rename 后名称是否是小写 kebab-case
+- [ ] 是否有凭空创建的 topic
+- [ ] 是否有删除 topic（只允许合并，不允许删除）
 
 INDEX:
 {index}
